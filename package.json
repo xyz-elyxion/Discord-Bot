@@ -7,7 +7,8 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "deploy": "node src/deploy-commands.js"
+    "deploy": "node src/deploy-commands.js",
+    "deploy:check": "node src/deploy-commands.js --check"
   },
   "engines": {
     "node": ">=18"

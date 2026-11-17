@@ -58,9 +58,38 @@ registerAutomod(client);
 registerMembers(client);
 registerLogging(client);
 
-client.once(Events.ClientReady, (readyClient) => {
+client.once(Events.ClientReady, async (readyClient) => {
   console.log(`Logged in as ${readyClient.user.tag} with ${client.commands.size} commands.`);
   readyClient.user.setActivity('/help', { type: ActivityType.Listening });
+
+  // Tell the operator when the running bot has commands Discord does not know about.
+  try {
+    const registered = new Set(
+      (await readyClient.application.commands.fetch()).map((command) => command.name),
+    );
+
+    const guildId = process.env.DISCORD_GUILD_ID ?? process.env.GUILD_ID;
+    const guild = guildId ? readyClient.guilds.cache.get(guildId) : null;
+
+    if (guild) {
+      for (const command of await guild.commands.fetch()) registered.add(command.name);
+      console.log(`Slash commands registered in ${guild.name}: ${registered.size}`);
+    } else {
+      console.log(`Slash commands registered globally: ${registered.size}`);
+      if (registered.size === 0) {
+        console.warn('No slash commands are registered yet — run "npm run deploy".');
+      }
+    }
+
+    const missing = [...client.commands.keys()].filter((name) => !registered.has(name));
+    if (missing.length) {
+      console.warn(
+        `${missing.length} commands are not registered with Discord — run "npm run deploy": ${missing.join(', ')}`,
+      );
+    }
+  } catch (error) {
+    console.warn('Could not check which commands are registered:', error.message);
+  }
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
