@@ -10,6 +10,7 @@ import {
   GatewayIntentBits,
   MessageFlags,
 } from 'discord.js';
+import { summarizeChannels } from './lib/channels.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const token = process.env.DISCORD_TOKEN;
@@ -36,7 +37,6 @@ client.once(Events.ClientReady, (readyClient) => {
   console.log(`Logged in as ${readyClient.user.tag} with ${client.commands.size} commands.`);
   readyClient.user.setActivity('/help', { type: ActivityType.Listening });
 });
-
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
@@ -65,6 +65,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
     } catch (replyError) {
       console.error('Failed to send the error message:', replyError);
     }
+  }
+});
+
+client.on(Events.GuildCreate, (guild) => {
+  const { visible, hidden } = summarizeChannels(guild);
+  if (hidden.length) {
+    console.log(
+      `${guild.name}: ${visible.length} channels visible, ${hidden.length} hidden by channel obfuscation.`,
+    );
   }
 });
 
