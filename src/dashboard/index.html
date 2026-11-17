@@ -61,18 +61,33 @@
         place-items: center;
         padding: 24px;
       }
-      #login form {
+      #login .login-card {
         width: 100%;
-        max-width: 360px;
+        max-width: 380px;
         background: var(--panel);
         border: 1px solid var(--border);
         border-radius: 14px;
         padding: 26px;
         display: grid;
-        gap: 12px;
+        gap: 14px;
       }
       #login h1 { margin: 0; font-size: 22px; }
-      #login p { margin: 0; color: var(--muted); font-size: 13px; }
+      #login p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+      a.btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px 16px;
+        border-radius: 8px;
+        background: var(--brand);
+        color: #fff;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      a.btn:hover { background: #4752c4; }
+      .user { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+      .user img { width: 22px; height: 22px; border-radius: 50%; }
 
       /* Shell */
       #app { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
@@ -146,13 +161,15 @@
   </head>
   <body>
     <div id="login">
-      <form id="login-form">
+      <div class="login-card">
         <h1>Bot Dashboard</h1>
-        <p>Sign in with the dashboard password from your <code>.env</code> (or the one printed in the bot console).</p>
-        <input type="password" id="password" placeholder="Dashboard password" autocomplete="current-password" required />
-        <button class="primary" type="submit">Sign in</button>
+        <p>
+          Sign in with Discord. You will only see servers where you have <strong>Manage Server</strong> or
+          <strong>Administrator</strong>, and the bot must be in them.
+        </p>
+        <a class="btn" href="/auth/login">Continue with Discord</a>
         <div id="login-status" class="hint"></div>
-      </form>
+      </div>
     </div>
 
     <div id="app" class="hidden">
@@ -160,7 +177,8 @@
         <div class="brand"><span class="dot"></span> Dashboard</div>
         <div class="label">Servers</div>
         <div id="guild-list"></div>
-        <div class="label">Session</div>
+        <div class="label">Signed in</div>
+        <div id="user" class="user"></div>
         <button id="logout" style="width: 100%">Sign out</button>
       </aside>
 
@@ -406,7 +424,7 @@
     </div>
 
     <script>
-      const state = { guilds: [], guildId: null, config: null, meta: { channels: [], roles: [] } };
+      const state = { user: null, guilds: [], guildId: null, config: null, meta: { channels: [], roles: [] } };
       const $ = (selector) => document.querySelector(selector);
 
       function escapeHtml(value) {
@@ -455,32 +473,36 @@
         $('#app').classList.remove('hidden');
       }
 
-      async function login(password) {
-        const response = await fetch('/api/login', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json', 'x-dashboard': '1' },
-          body: JSON.stringify({ password }),
-        });
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body.error || 'Login failed');
-      }
-
       async function boot() {
         try {
-          const { guilds } = await api('/api/guilds');
-          state.guilds = guilds;
+          const me = await api('/api/me');
+          state.user = me.user;
+          state.guilds = me.guilds;
           showApp();
+          renderUser();
           renderGuilds();
 
-          if (guilds.length) {
-            await selectGuild(guilds[0].id);
+          if (me.guilds.length) {
+            await selectGuild(me.guilds[0].id);
           } else {
             $('#guild-name').textContent = 'No servers';
-            setStatus('Invite the bot to a server to manage it.', 'err');
+            setStatus('You have Manage Server in no server that the bot is in.', 'err');
           }
         } catch (error) {
           if (error.message !== 'unauthorized') setStatus(error.message, 'err');
         }
+      }
+
+      function renderUser() {
+        const element = $('#user');
+        if (!state.user) {
+          element.textContent = '';
+          return;
+        }
+
+        const name = state.user.displayName || state.user.username;
+        element.innerHTML = (state.user.avatar ? `<img src="${state.user.avatar}" alt="">` : '') +
+          `<span>${escapeHtml(name)}</span>`;
       }
 
       function renderGuilds() {
@@ -669,24 +691,24 @@
       $('#save').addEventListener('click', save);
 
       $('#logout').addEventListener('click', async () => {
-        await fetch('/api/logout', { method: 'POST', headers: { 'x-dashboard': '1' } }).catch(() => {});
+        await fetch('/auth/logout', { method: 'POST', headers: { 'x-dashboard': '1' } }).catch(() => {});
+        window.location.href = '/';
+      });
+
+      const oauthErrors = {
+        access_denied: 'You cancelled the Discord sign-in.',
+        state: 'That sign-in link expired. Try again.',
+        missing_code: 'Discord did not send an authorization code. Try again.',
+        token_exchange: 'Discord rejected the sign-in. Check DISCORD_CLIENT_SECRET and the redirect URI.',
+        profile: 'Could not read your Discord profile. Try again.',
+      };
+
+      const query = new URLSearchParams(window.location.search);
+      if (query.get('error')) {
         showLogin();
-      });
-
-      $('#login-form').addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const status = $('#login-status');
-        status.textContent = 'Signing in…';
-
-        try {
-          await login($('#password').value);
-          status.textContent = '';
-          $('#password').value = '';
-          await boot();
-        } catch (error) {
-          status.textContent = error.message;
-        }
-      });
+        $('#login-status').textContent = oauthErrors[query.get('error')] ?? 'Sign-in failed. Try again.';
+        window.history.replaceState(null, '', window.location.pathname);
+      }
 
       boot();
     </script>
