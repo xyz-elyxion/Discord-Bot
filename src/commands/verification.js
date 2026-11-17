@@ -56,7 +56,9 @@ export default {
 
     const channel = interaction.options.getChannel('channel');
     const role = interaction.options.getRole('role');
-    const message = interaction.options.getString('message') ?? 'Click the button below to verify and get access to the server.';
+    const message =
+      interaction.options.getString('message') ??
+      'Click **Verify** below, then type the characters shown in the captcha image to get access.';
 
     if (!channel?.isTextBased?.()) {
       await interaction.reply({ embeds: [errorEmbed('Pick a text channel.')], flags: MessageFlags.Ephemeral });
@@ -72,7 +74,11 @@ export default {
     }
 
     const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('verify').setLabel('Verify').setStyle(ButtonStyle.Success).setEmoji('✅'),
+      new ButtonBuilder()
+        .setCustomId('verify_start')
+        .setLabel('Verify')
+        .setStyle(ButtonStyle.Success)
+        .setEmoji('🤖'),
     );
 
     const sent = await channel.send({

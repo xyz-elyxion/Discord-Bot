@@ -104,8 +104,8 @@ client.once(Events.ClientReady, async (readyClient) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
-  if (interaction.isButton()) {
-    await handleComponent(interaction).catch((error) => console.error('Button handler failed:', error));
+  if (interaction.isButton() || interaction.isModalSubmit()) {
+    await handleComponent(interaction).catch((error) => console.error('Verification handler failed:', error));
     return;
   }
 
