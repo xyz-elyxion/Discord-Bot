@@ -12,6 +12,7 @@ import {
   Partials,
 } from 'discord.js';
 import { summarizeChannels } from './lib/channels.js';
+import { syncCommands } from './lib/register.js';
 import { flushStore, initStore } from './lib/store.js';
 import { handleComponent } from './events/interactions.js';
 import { registerAntinuke } from './events/antinuke.js';
@@ -62,33 +63,42 @@ client.once(Events.ClientReady, async (readyClient) => {
   console.log(`Logged in as ${readyClient.user.tag} with ${client.commands.size} commands.`);
   readyClient.user.setActivity('/help', { type: ActivityType.Listening });
 
-  // Tell the operator when the running bot has commands Discord does not know about.
+  const guildId = process.env.DISCORD_GUILD_ID ?? process.env.GUILD_ID;
+  const autoDeploy = (process.env.AUTO_DEPLOY ?? 'true').toLowerCase() !== 'false';
+
+  if (!autoDeploy) {
+    console.log('AUTO_DEPLOY=false — slash commands were not touched. Run "npm run deploy" after changing commands.');
+    return;
+  }
+
+  // Register (or update) the slash commands automatically on every startup.
+  // Discord's copy is only rewritten when it actually differs, so restarts are cheap.
   try {
-    const registered = new Set(
-      (await readyClient.application.commands.fetch()).map((command) => command.name),
+    const result = await syncCommands(readyClient, { guildId });
+    console.log(
+      result.changed
+        ? `Registered ${result.count} slash commands in ${result.scope}.`
+        : `Slash commands already up to date in ${result.scope} (${result.count}).`,
     );
 
-    const guildId = process.env.DISCORD_GUILD_ID ?? process.env.GUILD_ID;
-    const guild = guildId ? readyClient.guilds.cache.get(guildId) : null;
-
-    if (guild) {
-      for (const command of await guild.commands.fetch()) registered.add(command.name);
-      console.log(`Slash commands registered in ${guild.name}: ${registered.size}`);
-    } else {
-      console.log(`Slash commands registered globally: ${registered.size}`);
-      if (registered.size === 0) {
-        console.warn('No slash commands are registered yet — run "npm run deploy".');
-      }
+    if (!guildId) {
+      console.log('  Global commands can take up to an hour to appear; set DISCORD_GUILD_ID for instant updates.');
     }
-
-    const missing = [...client.commands.keys()].filter((name) => !registered.has(name));
-    if (missing.length) {
-      console.warn(
-        `${missing.length} commands are not registered with Discord — run "npm run deploy": ${missing.join(', ')}`,
-      );
+    if (result.missing.length) {
+      console.warn(`Discord did not accept these commands: ${result.missing.join(', ')}`);
     }
   } catch (error) {
-    console.warn('Could not check which commands are registered:', error.message);
+    const hint =
+      error?.status === 401 || error?.code === 401
+        ? ' The bot token is invalid.'
+        : error?.status === 404 || error?.code === 10004
+          ? ' That guild ID does not exist or the bot is not in it.'
+          : error?.status === 403 || error?.code === 50001
+            ? ' The bot was probably invited without the applications.commands scope.'
+            : '';
+    console.warn(
+      `Could not register slash commands automatically: ${error.message}.${hint} Run "npm run deploy" for a detailed report.`,
+    );
   }
 });
 
