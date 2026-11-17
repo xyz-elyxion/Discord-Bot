@@ -9,8 +9,15 @@ import {
   Events,
   GatewayIntentBits,
   MessageFlags,
+  Partials,
 } from 'discord.js';
 import { summarizeChannels } from './lib/channels.js';
+import { flushStore, initStore } from './lib/store.js';
+import { handleComponent } from './events/interactions.js';
+import { registerAntinuke } from './events/antinuke.js';
+import { registerAutomod } from './events/automod.js';
+import { registerLogging } from './events/logging.js';
+import { registerMembers } from './events/members.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const token = process.env.DISCORD_TOKEN;
@@ -20,7 +27,20 @@ if (!token) {
   process.exit(1);
 }
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+await initStore();
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers, // privileged: enable "Server Members" in the Developer Portal
+    GatewayIntentBits.GuildModeration,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent, // privileged: enable "Message Content" in the Developer Portal
+    GatewayIntentBits.GuildVoiceStates,
+  ],
+  partials: [Partials.Message, Partials.Channel, Partials.GuildMember, Partials.User],
+});
+
 client.commands = new Collection();
 
 const commandsDir = path.join(__dirname, 'commands');
@@ -33,11 +53,22 @@ for (const file of (await readdir(commandsDir)).filter((name) => name.endsWith('
   client.commands.set(command.data.name, command);
 }
 
+registerAntinuke(client);
+registerAutomod(client);
+registerMembers(client);
+registerLogging(client);
+
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Logged in as ${readyClient.user.tag} with ${client.commands.size} commands.`);
   readyClient.user.setActivity('/help', { type: ActivityType.Listening });
 });
+
 client.on(Events.InteractionCreate, async (interaction) => {
+  if (interaction.isButton()) {
+    await handleComponent(interaction).catch((error) => console.error('Button handler failed:', error));
+    return;
+  }
+
   if (!interaction.isChatInputCommand()) return;
 
   const command = client.commands.get(interaction.commandName);
@@ -70,19 +101,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 client.on(Events.GuildCreate, (guild) => {
   const { visible, hidden } = summarizeChannels(guild);
-  if (hidden.length) {
-    console.log(
-      `${guild.name}: ${visible.length} channels visible, ${hidden.length} hidden by channel obfuscation.`,
-    );
-  }
+  console.log(
+    `Joined ${guild.name}: ${visible.length} channels visible, ${hidden.length} hidden by channel obfuscation.`,
+  );
 });
 
 client.on(Events.Error, (error) => console.error('Client error:', error));
 client.on(Events.Warn, (message) => console.warn('Client warning:', message));
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => {
-    console.log(`\nReceived ${signal}, shutting down.`);
+  process.on(signal, async () => {
+    console.log(`\nReceived ${signal}, saving data and shutting down.`);
+    await flushStore().catch((error) => console.error('Failed to flush the store:', error));
     client.destroy();
     process.exit(0);
   });
