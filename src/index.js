@@ -11,6 +11,7 @@ import {
   MessageFlags,
   Partials,
 } from 'discord.js';
+import { startDashboard } from './dashboard/server.js';
 import { summarizeChannels } from './lib/channels.js';
 import { syncCommands } from './lib/register.js';
 import { flushStore, initStore } from './lib/store.js';
@@ -158,3 +159,9 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 }
 
 await client.login(token);
+
+if ((process.env.DASHBOARD ?? 'true').toLowerCase() !== 'false') {
+  startDashboard(client).catch((error) => {
+    console.error(`Dashboard failed to start: ${error.message}`);
+  });
+}

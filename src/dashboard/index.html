@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bot Dashboard</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #111318;
+        --panel: #181b22;
+        --panel-2: #1f232c;
+        --border: #2b2f3a;
+        --text: #e6e8ee;
+        --muted: #9aa1b1;
+        --brand: #5865f2;
+        --ok: #3ba55d;
+        --warn: #faa61a;
+        --danger: #ed4245;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        font-size: 14px;
+      }
+      .hidden { display: none !important; }
+      button {
+        font: inherit;
+        color: inherit;
+        background: var(--panel-2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px 14px;
+        cursor: pointer;
+      }
+      button:hover { background: #262b35; }
+      button.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+      button.primary:hover { background: #4752c4; }
+      input, select, textarea {
+        font: inherit;
+        width: 100%;
+        color: var(--text);
+        background: var(--panel-2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px 10px;
+      }
+      input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--brand); }
+      textarea { min-height: 80px; resize: vertical; }
+      h2 { margin: 0 0 4px; font-size: 20px; }
+      h3 { margin: 22px 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+      p.hint { margin: 0 0 14px; color: var(--muted); font-size: 12px; }
+
+      /* Login */
+      #login {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+      #login form {
+        width: 100%;
+        max-width: 360px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 26px;
+        display: grid;
+        gap: 12px;
+      }
+      #login h1 { margin: 0; font-size: 22px; }
+      #login p { margin: 0; color: var(--muted); font-size: 13px; }
+
+      /* Shell */
+      #app { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+      aside {
+        background: var(--panel);
+        border-right: 1px solid var(--border);
+        padding: 18px 14px;
+        overflow-y: auto;
+      }
+      aside .brand { font-weight: 700; font-size: 15px; margin-bottom: 16px; display: flex; gap: 8px; align-items: center; }
+      aside .brand span.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ok); }
+      aside .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; margin: 14px 0 6px; }
+      .guild-btn {
+        display: block;
+        width: 100%;
+        text-align: left;
+        margin-bottom: 6px;
+        padding: 9px 11px;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        background: transparent;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .guild-btn:hover { background: var(--panel-2); }
+      .guild-btn.active { background: var(--panel-2); border-color: var(--brand); }
+
+      main { padding: 22px 26px 60px; max-width: 1100px; }
+      header.bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+      .actions { display: flex; gap: 8px; align-items: center; }
+      #status { font-size: 12px; color: var(--muted); min-height: 16px; }
+      #status.err { color: var(--danger); }
+      #status.ok { color: var(--ok); }
+
+      nav.tabs { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+      nav.tabs button { border: none; border-radius: 8px 8px 0 0; background: transparent; color: var(--muted); padding: 9px 13px; }
+      nav.tabs button.active { background: var(--panel); color: var(--text); box-shadow: inset 0 -2px 0 var(--brand); }
+
+      section.panel { display: none; }
+      section.panel.active { display: block; }
+      .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+      .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
+      .row input[type="checkbox"] { flex: 0 0 auto; }
+      .field { display: grid; gap: 6px; }
+      .field > span { color: var(--muted); font-size: 12px; }
+
+      .overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+      .stat { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+      .stat h4 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+      .stat strong { display: block; font-size: 16px; }
+      .stat small { color: var(--muted); }
+      .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; border: 1px solid var(--border); }
+      .pill.on { color: var(--ok); border-color: rgba(59,165,93,.5); }
+      .pill.off { color: var(--muted); }
+      .pill.hot { color: var(--danger); border-color: rgba(237,66,69,.5); }
+
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+      th { color: var(--muted); font-weight: 600; font-size: 12px; }
+      code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+      .empty { color: var(--muted); padding: 18px 0; }
+
+      @media (max-width: 760px) {
+        #app { grid-template-columns: 1fr; }
+        aside { border-right: none; border-bottom: 1px solid var(--border); }
+        main { padding: 18px 16px 50px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="login">
+      <form id="login-form">
+        <h1>Bot Dashboard</h1>
+        <p>Sign in with the dashboard password from your <code>.env</code> (or the one printed in the bot console).</p>
+        <input type="password" id="password" placeholder="Dashboard password" autocomplete="current-password" required />
+        <button class="primary" type="submit">Sign in</button>
+        <div id="login-status" class="hint"></div>
+      </form>
+    </div>
+
+    <div id="app" class="hidden">
+      <aside>
+        <div class="brand"><span class="dot"></span> Dashboard</div>
+        <div class="label">Servers</div>
+        <div id="guild-list"></div>
+        <div class="label">Session</div>
+        <button id="logout" style="width: 100%">Sign out</button>
+      </aside>
+
+      <main>
+        <header class="bar">
+          <div>
+            <h2 id="guild-name">Select a server</h2>
+            <div id="status"></div>
+          </div>
+          <div class="actions">
+            <button id="save" class="primary">Save changes</button>
+          </div>
+        </header>
+
+        <nav class="tabs" id="tabs">
+          <button data-tab="overview" class="active">Overview</button>
+          <button data-tab="antinuke">Anti-nuke</button>
+          <button data-tab="antiraid">Anti-raid</button>
+          <button data-tab="automod">Automod</button>
+          <button data-tab="logs">Logs</button>
+          <button data-tab="welcome">Welcome</button>
+          <button data-tab="autorole">Autorole</button>
+          <button data-tab="verification">Verification</button>
+          <button data-tab="cases">Cases</button>
+        </nav>
+
+        <section class="panel active" data-panel="overview">
+          <div class="overview" id="overview"></div>
+          <h3>Servers</h3>
+          <p class="hint">Settings are saved to <code>data/store.json</code> and picked up by the bot immediately.</p>
+        </section>
+
+        <section class="panel" data-panel="antinuke">
+          <div class="card">
+            <div class="grid">
+              <label class="row"><span>Protection enabled</span><input type="checkbox" data-key="antinuke.enabled" data-type="bool" /></label>
+              <label class="row"><span>Trust administrators</span><input type="checkbox" data-key="antinuke.trustAdmins" data-type="bool" /></label>
+              <div class="field">
+                <span>Punishment</span>
+                <select data-key="antinuke.punishment" data-type="str">
+                  <option value="ban">Ban</option>
+                  <option value="kick">Kick</option>
+                  <option value="strip">Strip roles</option>
+                  <option value="none">Log only</option>
+                </select>
+              </div>
+              <div class="field">
+                <span>Window (milliseconds)</span>
+                <input type="number" min="1000" step="1000" data-key="antinuke.windowMs" data-type="int" />
+              </div>
+            </div>
+
+            <h3>Thresholds — actions per window</h3>
+            <div class="grid">
+              <div class="field"><span>Bans</span><input type="number" min="1" max="50" data-key="antinuke.thresholds.ban" data-type="int" /></div>
+              <div class="field"><span>Kicks</span><input type="number" min="1" max="50" data-key="antinuke.thresholds.kick" data-type="int" /></div>
+              <div class="field"><span>Channel deletes</span><input type="number" min="1" max="50" data-key="antinuke.thresholds.channelDelete" data-type="int" /></div>
+              <div class="field"><span>Channel creates</span><input type="number" min="1" max="50" data-key="antinuke.thresholds.channelCreate" data-type="int" /></div>
+              <div class="field"><span>Role deletes</span><input type="number" min="1" max="50" data-key="antinuke.thresholds.roleDelete" data-type="int" /></div>
+              <div class="field"><span>Role creates</span><input type="number" min="1" max="50" data-key="antinuke.thresholds.roleCreate" data-type="int" /></div>
+              <div class="field"><span>Webhook creates</span><input type="number" min="1" max="50" data-key="antinuke.thresholds.webhookCreate" data-type="int" /></div>
+              <div class="field"><span>Member role changes</span><input type="number" min="1" max="50" data-key="antinuke.thresholds.memberRoleUpdate" data-type="int" /></div>
+              <div class="field"><span>Admin grants</span><input type="number" min="1" max="50" data-key="antinuke.thresholds.adminGrant" data-type="int" /></div>
+              <div class="field"><span>Bot additions</span><input type="number" min="1" max="50" data-key="antinuke.thresholds.botAdd" data-type="int" /></div>
+            </div>
+
+            <h3>Whitelist</h3>
+            <div class="grid">
+              <div class="field">
+                <span>User IDs (comma separated)</span>
+                <input data-key="antinuke.whitelist.users" data-type="ids" placeholder="123456789012345678, 987654321098765432" />
+              </div>
+              <div class="field">
+                <span>Role IDs (comma separated)</span>
+                <input data-key="antinuke.whitelist.roles" data-type="ids" placeholder="123456789012345678" />
+              </div>
+            </div>
+            <p class="hint">The server owner and this bot are always exempt.</p>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="antiraid">
+          <div class="card">
+            <div class="grid">
+              <label class="row"><span>Join filtering enabled</span><input type="checkbox" data-key="antiraid.enabled" data-type="bool" /></label>
+              <label class="row"><span>Panic mode (raid mode)</span><input type="checkbox" data-key="antiraid.raidMode" data-type="bool" /></label>
+              <div class="field">
+                <span>Action</span>
+                <select data-key="antiraid.action" data-type="str">
+                  <option value="kick">Kick</option>
+                  <option value="ban">Ban</option>
+                  <option value="quarantine">Quarantine</option>
+                  <option value="none">Log only</option>
+                </select>
+              </div>
+              <div class="field"><span>Joins allowed per window</span><input type="number" min="2" max="100" data-key="antiraid.joinThreshold" data-type="int" /></div>
+              <div class="field"><span>Window (milliseconds)</span><input type="number" min="2000" step="1000" data-key="antiraid.windowMs" data-type="int" /></div>
+              <div class="field"><span>Minimum account age (days)</span><input type="number" min="0" max="365" data-key="antiraid.minAccountAgeDays" data-type="int" /></div>
+              <div class="field">
+                <span>Quarantine role</span>
+                <select data-key="quarantineRoleId" data-type="id" data-options="roles"></select>
+              </div>
+            </div>
+            <p class="hint">Panic mode kicks every new join while it is on. Use <code>/panic disable</code> in Discord to unlock channels again.</p>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="automod">
+          <div class="card">
+            <div class="grid">
+              <label class="row"><span>Automod enabled</span><input type="checkbox" data-key="automod.enabled" data-type="bool" /></label>
+              <div class="field">
+                <span>Action</span>
+                <select data-key="automod.action" data-type="str">
+                  <option value="delete">Delete message</option>
+                  <option value="timeout">Delete + timeout</option>
+                  <option value="kick">Delete + kick</option>
+                </select>
+              </div>
+              <div class="field"><span>Timeout minutes</span><input type="number" min="1" max="40320" data-key="automod.timeoutMinutes" data-type="int" /></div>
+            </div>
+
+            <h3>Rules</h3>
+            <div class="grid">
+              <label class="row"><span>Spam</span><input type="checkbox" data-key="automod.spam.enabled" data-type="bool" /></label>
+              <label class="row"><span>Discord invites</span><input type="checkbox" data-key="automod.invites.enabled" data-type="bool" /></label>
+              <label class="row"><span>Links</span><input type="checkbox" data-key="automod.links.enabled" data-type="bool" /></label>
+              <label class="row"><span>Excessive caps</span><input type="checkbox" data-key="automod.caps.enabled" data-type="bool" /></label>
+              <label class="row"><span>Mass mentions</span><input type="checkbox" data-key="automod.mentions.enabled" data-type="bool" /></label>
+              <label class="row"><span>Emoji spam</span><input type="checkbox" data-key="automod.emojis.enabled" data-type="bool" /></label>
+            </div>
+
+            <h3>Limits</h3>
+            <div class="grid">
+              <div class="field"><span>Spam messages per window</span><input type="number" min="2" max="100" data-key="automod.spam.threshold" data-type="int" /></div>
+              <div class="field"><span>Spam window (ms)</span><input type="number" min="1000" step="1000" data-key="automod.spam.windowMs" data-type="int" /></div>
+              <div class="field"><span>Caps percentage</span><input type="number" min="10" max="100" data-key="automod.caps.percent" data-type="int" /></div>
+              <div class="field"><span>Caps minimum length</span><input type="number" min="3" max="200" data-key="automod.caps.minLength" data-type="int" /></div>
+              <div class="field"><span>Mentions before action</span><input type="number" min="1" max="50" data-key="automod.mentions.limit" data-type="int" /></div>
+              <div class="field"><span>Emojis before action</span><input type="number" min="1" max="100" data-key="automod.emojis.limit" data-type="int" /></div>
+            </div>
+
+            <h3>Banned words</h3>
+            <div class="field">
+              <span>One per line or comma separated</span>
+              <textarea data-key="automod.bannedWords" data-type="words" placeholder="badword&#10;another one"></textarea>
+            </div>
+
+            <h3>Exemptions (IDs, comma separated)</h3>
+            <div class="grid">
+              <div class="field"><span>Users</span><input data-key="automod.exemptUsers" data-type="ids" /></div>
+              <div class="field"><span>Roles</span><input data-key="automod.exemptRoles" data-type="ids" /></div>
+              <div class="field"><span>Channels</span><input data-key="automod.exemptChannels" data-type="ids" /></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="logs">
+          <div class="card">
+            <div class="grid">
+              <label class="row"><span>Logging enabled</span><input type="checkbox" data-key="logs.enabled" data-type="bool" /></label>
+              <div class="field">
+                <span>Log channel</span>
+                <select data-key="logs.channelId" data-type="id" data-options="channels"></select>
+              </div>
+            </div>
+
+            <h3>Categories</h3>
+            <div class="grid">
+              <label class="row"><span>Message edits/deletes</span><input type="checkbox" data-key="logs.events.messages" data-type="bool" /></label>
+              <label class="row"><span>Member joins/leaves</span><input type="checkbox" data-key="logs.events.members" data-type="bool" /></label>
+              <label class="row"><span>Moderation actions</span><input type="checkbox" data-key="logs.events.moderation" data-type="bool" /></label>
+              <label class="row"><span>Channel/role changes</span><input type="checkbox" data-key="logs.events.server" data-type="bool" /></label>
+              <label class="row"><span>Voice activity</span><input type="checkbox" data-key="logs.events.voice" data-type="bool" /></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="welcome">
+          <div class="card">
+            <h3>Welcome message</h3>
+            <div class="grid">
+              <label class="row"><span>Welcome enabled</span><input type="checkbox" data-key="welcome.enabled" data-type="bool" /></label>
+              <div class="field">
+                <span>Channel</span>
+                <select data-key="welcome.channelId" data-type="id" data-options="channels"></select>
+              </div>
+            </div>
+            <div class="field" style="margin-top: 14px">
+              <span>Message — placeholders: {user} {name} {tag} {server} {count}</span>
+              <input data-key="welcome.message" data-type="str" />
+            </div>
+
+            <h3>Goodbye message</h3>
+            <div class="grid">
+              <label class="row"><span>Goodbye enabled</span><input type="checkbox" data-key="welcome.goodbye.enabled" data-type="bool" /></label>
+              <div class="field">
+                <span>Channel</span>
+                <select data-key="welcome.goodbye.channelId" data-type="id" data-options="channels"></select>
+              </div>
+            </div>
+            <div class="field" style="margin-top: 14px">
+              <span>Message</span>
+              <input data-key="welcome.goodbye.message" data-type="str" />
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="autorole">
+          <div class="card">
+            <label class="row"><span>Autorole enabled</span><input type="checkbox" data-key="autorole.enabled" data-type="bool" /></label>
+            <h3>Roles</h3>
+            <div class="field">
+              <span>Role IDs (comma separated, up to 10)</span>
+              <input data-key="autorole.roleIds" data-type="ids" />
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="verification">
+          <div class="card">
+            <div class="grid">
+              <label class="row"><span>Verification enabled</span><input type="checkbox" data-key="verification.enabled" data-type="bool" /></label>
+              <div class="field">
+                <span>Panel channel</span>
+                <select data-key="verification.channelId" data-type="id" data-options="channels"></select>
+              </div>
+              <div class="field">
+                <span>Role granted on verify</span>
+                <select data-key="verification.roleId" data-type="id" data-options="roles"></select>
+              </div>
+            </div>
+            <p class="hint">Create or re-post the verification panel with <code>/verification setup</code> in Discord.</p>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="cases">
+          <div class="card">
+            <div id="cases" class="empty">Loading cases…</div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const state = { guilds: [], guildId: null, config: null, meta: { channels: [], roles: [] } };
+      const $ = (selector) => document.querySelector(selector);
+
+      function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+          '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+        })[character]);
+      }
+
+      function setStatus(message, kind = '') {
+        const element = $('#status');
+        element.textContent = message ?? '';
+        element.className = kind;
+      }
+
+      function getPath(object, dotted) {
+        return dotted.split('.').reduce((value, key) => (value == null ? undefined : value[key]), object);
+      }
+
+      async function api(path, options = {}) {
+        const response = await fetch(path, {
+          ...options,
+          headers: { 'x-dashboard': '1', 'content-type': 'application/json', ...(options.headers ?? {}) },
+          credentials: 'same-origin',
+        });
+
+        if (response.status === 401) {
+          showLogin();
+          throw new Error('unauthorized');
+        }
+
+        const body = (response.headers.get('content-type') ?? '').includes('application/json')
+          ? await response.json()
+          : null;
+
+        if (!response.ok) throw new Error((body && body.error) || `Request failed (${response.status})`);
+        return body;
+      }
+
+      function showLogin() {
+        $('#login').classList.remove('hidden');
+        $('#app').classList.add('hidden');
+      }
+
+      function showApp() {
+        $('#login').classList.add('hidden');
+        $('#app').classList.remove('hidden');
+      }
+
+      async function login(password) {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-dashboard': '1' },
+          body: JSON.stringify({ password }),
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body.error || 'Login failed');
+      }
+
+      async function boot() {
+        try {
+          const { guilds } = await api('/api/guilds');
+          state.guilds = guilds;
+          showApp();
+          renderGuilds();
+
+          if (guilds.length) {
+            await selectGuild(guilds[0].id);
+          } else {
+            $('#guild-name').textContent = 'No servers';
+            setStatus('Invite the bot to a server to manage it.', 'err');
+          }
+        } catch (error) {
+          if (error.message !== 'unauthorized') setStatus(error.message, 'err');
+        }
+      }
+
+      function renderGuilds() {
+        const list = $('#guild-list');
+        list.innerHTML = '';
+
+        for (const guild of state.guilds) {
+          const button = document.createElement('button');
+          button.className = `guild-btn${guild.id === state.guildId ? ' active' : ''}`;
+          button.textContent = guild.name;
+          button.title = `${guild.name} · ${guild.id}`;
+          button.addEventListener('click', () => selectGuild(guild.id));
+          list.appendChild(button);
+        }
+      }
+
+      async function selectGuild(guildId) {
+        state.guildId = guildId;
+        renderGuilds();
+        setStatus('Loading…');
+
+        const data = await api(`/api/guilds/${guildId}`);
+        state.config = data.config;
+        state.meta = { channels: data.channels, roles: data.roles };
+
+        $('#guild-name').textContent = data.guild.name;
+        populateSelects();
+        fillForm();
+        renderOverview();
+        setStatus('');
+
+        if (document.querySelector('[data-panel="cases"]').classList.contains('active')) loadCases();
+      }
+
+      function populateSelects() {
+        for (const select of document.querySelectorAll('select[data-options]')) {
+          const items = select.dataset.options === 'roles' ? state.meta.roles : state.meta.channels;
+          const current = select.value;
+          select.innerHTML = '<option value="">— none —</option>' +
+            items.map((item) => `<option value="${item.id}">${escapeHtml(item.name)}</option>`).join('');
+          select.value = current;
+        }
+      }
+
+      function fillForm() {
+        for (const element of document.querySelectorAll('[data-key]')) {
+          const value = getPath(state.config, element.dataset.key);
+
+          if (element.type === 'checkbox') {
+            element.checked = Boolean(value);
+          } else if (element.dataset.type === 'ids') {
+            element.value = Array.isArray(value) ? value.join(', ') : '';
+          } else if (element.dataset.type === 'words') {
+            element.value = Array.isArray(value) ? value.join('\n') : '';
+          } else if (element.dataset.type === 'bool') {
+            element.value = String(Boolean(value));
+          } else if (value === null || value === undefined) {
+            element.value = '';
+          } else {
+            element.value = value;
+          }
+        }
+      }
+
+      function collectForm() {
+        const payload = {};
+
+        for (const element of document.querySelectorAll('[data-key]')) {
+          const key = element.dataset.key;
+          const type = element.dataset.type;
+
+          if (type === 'bool') {
+            payload[key] = element.checked;
+          } else if (type === 'int') {
+            payload[key] = Number(element.value);
+          } else if (type === 'ids') {
+            payload[key] = element.value.split(/[\s,]+/).map((value) => value.trim()).filter(Boolean);
+          } else if (type === 'words') {
+            payload[key] = element.value.split(/[\n,]+/).map((value) => value.trim()).filter(Boolean);
+          } else if (type === 'id') {
+            payload[key] = element.value || null;
+          } else {
+            payload[key] = element.value;
+          }
+        }
+
+        return payload;
+      }
+
+      async function save() {
+        if (!state.guildId) return;
+
+        try {
+          setStatus('Saving…');
+          const result = await api(`/api/guilds/${state.guildId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(collectForm()),
+          });
+
+          state.config = result.config;
+          renderOverview();
+          setStatus(`Saved ${result.applied.length} setting${result.applied.length === 1 ? '' : 's'}.`, 'ok');
+          if (result.unknown && result.unknown.length) {
+            setStatus(`Saved, but ignored unknown fields: ${result.unknown.join(', ')}`, 'err');
+          }
+        } catch (error) {
+          if (error.message !== 'unauthorized') setStatus(error.message, 'err');
+        }
+      }
+
+      function renderOverview() {
+        const config = state.config;
+        if (!config) return;
+
+        const pill = (on, label) => `<span class="pill ${on ? 'on' : 'off'}">${label}</span>`;
+        const stat = (title, value, detail) =>
+          `<div class="stat"><h4>${title}</h4><strong>${value}</strong><small>${detail ?? ''}</small></div>`;
+
+        $('#overview').innerHTML = [
+          stat('Anti-nuke', pill(config.antinuke.enabled, config.antinuke.enabled ? 'on' : 'off'),
+            `${config.antinuke.punishment} · ${config.antinuke.whitelist.users.length} users, ${config.antinuke.whitelist.roles.length} roles whitelisted`),
+          stat('Anti-raid', pill(config.antiraid.enabled, config.antiraid.enabled ? 'on' : 'off'),
+            `${config.antiraid.joinThreshold} joins / ${Math.round(config.antiraid.windowMs / 1000)}s`),
+          stat('Panic mode', `<span class="pill ${config.antiraid.raidMode ? 'hot' : 'off'}">${config.antiraid.raidMode ? 'active' : 'off'}</span>`,
+            config.antiraid.raidMode ? 'new joins are kicked' : 'normal'),
+          stat('Automod', pill(config.automod.enabled, config.automod.enabled ? 'on' : 'off'),
+            `${config.automod.bannedWords.length} banned words · action: ${config.automod.action}`),
+          stat('Logs', pill(config.logs.enabled, config.logs.enabled ? 'on' : 'off'),
+            config.logs.channelId ? `<code>${config.logs.channelId}</code>` : 'no channel set'),
+          stat('Welcome', pill(config.welcome.enabled, config.welcome.enabled ? 'on' : 'off'),
+            config.welcome.channelId ? `<code>${config.welcome.channelId}</code>` : 'no channel set'),
+          stat('Verification', pill(config.verification.enabled, config.verification.enabled ? 'on' : 'off'),
+            config.verification.roleId ? `<code>${config.verification.roleId}</code>` : 'no role set'),
+          stat('Lockdown', `<span class="pill ${config.lockdown.active ? 'hot' : 'off'}">${config.lockdown.active ? 'active' : 'off'}</span>`,
+            `${config.lockdown.channels.length} channels recorded`),
+        ].join('');
+      }
+
+      async function loadCases() {
+        if (!state.guildId) return;
+
+        const container = $('#cases');
+        container.innerHTML = 'Loading cases…';
+
+        try {
+          const { cases } = await api(`/api/guilds/${state.guildId}/cases?limit=50`);
+
+          if (!cases.length) {
+            container.textContent = 'No moderation cases recorded yet.';
+            return;
+          }
+
+          const rows = cases.map((entry) => `
+            <tr>
+              <td>#${entry.id}</td>
+              <td><code>${escapeHtml(entry.type)}</code></td>
+              <td>${entry.userId ? `<code>${escapeHtml(entry.userId)}</code>` : '—'}</td>
+              <td>${entry.moderatorId ? `<code>${escapeHtml(entry.moderatorId)}</code>` : 'system'}</td>
+              <td>${escapeHtml(entry.reason ?? '').slice(0, 200)}</td>
+              <td>${new Date(entry.createdAt).toLocaleString()}</td>
+            </tr>`).join('');
+
+          container.className = '';
+          container.innerHTML = `
+            <table>
+              <thead><tr><th>Case</th><th>Type</th><th>User</th><th>Moderator</th><th>Reason</th><th>When</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>`;
+        } catch (error) {
+          if (error.message !== 'unauthorized') container.textContent = error.message;
+        }
+      }
+
+      $('#tabs').addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-tab]');
+        if (!button) return;
+
+        for (const tab of document.querySelectorAll('#tabs button')) tab.classList.toggle('active', tab === button);
+        for (const panel of document.querySelectorAll('section.panel')) {
+          panel.classList.toggle('active', panel.dataset.panel === button.dataset.tab);
+        }
+
+        if (button.dataset.tab === 'cases') loadCases();
+      });
+
+      $('#save').addEventListener('click', save);
+
+      $('#logout').addEventListener('click', async () => {
+        await fetch('/api/logout', { method: 'POST', headers: { 'x-dashboard': '1' } }).catch(() => {});
+        showLogin();
+      });
+
+      $('#login-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const status = $('#login-status');
+        status.textContent = 'Signing in…';
+
+        try {
+          await login($('#password').value);
+          status.textContent = '';
+          $('#password').value = '';
+          await boot();
+        } catch (error) {
+          status.textContent = error.message;
+        }
+      });
+
+      boot();
+    </script>
+  </body>
+</html>
